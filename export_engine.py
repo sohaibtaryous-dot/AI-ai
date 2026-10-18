@@ -1127,11 +1127,25 @@ def _render_ventilation_section(bl_final: pd.DataFrame):
     import ventilation_export as vx
     import ui
     ui.section("Ventilation DUM — modèle VENTI_EXPORT", "🧮")
-    tpl = vx.get_template_bytes()
+    stored = vx.get_template_bytes()
+    with st.expander("Modèle Excel de ventilation (VENTI_EXPORT)", expanded=stored is None):
+        up = st.file_uploader("Déposez ici votre fichier VENTI_EXPORT (.xltx ou .xlsx)", type=["xltx", "xlsx"], key="vx_tpl_session")
+        if up is not None:
+            st.session_state["vx_tpl_bytes"] = up.getvalue()
+            st.session_state["vx_tpl_name"] = up.name
+        if st.session_state.get("vx_tpl_bytes"):
+            st.success(f"Modèle utilisé : {st.session_state.get('vx_tpl_name', 'fichier déposé')} (valable pour cette session).")
+        elif stored:
+            st.caption("Modèle utilisé : celui enregistré sur le site. Déposez un fichier ici pour utiliser le vôtre à la place.")
+    tpl = st.session_state.get("vx_tpl_bytes") or stored
     if not tpl:
-        st.info("Modèle de ventilation introuvable : l'administrateur doit le téléverser (Paramètres du site).")
+        st.info("Déposez votre fichier VENTI_EXPORT ci-dessus pour lancer la ventilation.")
         return
-    ref = _vx_reference(tpl)
+    try:
+        ref = _vx_reference(tpl)
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Ce fichier n'est pas un modèle VENTI_EXPORT valide (feuilles BASE DONNER / NGPN / ATTELIER attendues) : {exc}")
+        return
     try:
         default_rate = float(database.get_setting("EUR_MAD_RATE") or 10.9272)
     except ValueError:
